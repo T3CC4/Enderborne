@@ -3,7 +3,9 @@
 	"package": "de.tecca.enderborne.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"EndermanPeacefulMixin",
+		"DimensionAccessMixin",
+		"DragonDefeatMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
