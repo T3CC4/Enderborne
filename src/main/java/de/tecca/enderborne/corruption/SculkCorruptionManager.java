@@ -7,6 +7,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.WorldChunk;
 
@@ -17,6 +18,7 @@ import java.util.Random;
  * End: Heavy corruption (60-80%)
  * Nether: Medium corruption (30-50%)
  * Overworld: Light corruption (10-20%)
+ * Fixed for Minecraft 1.21.8 APIs
  */
 public class SculkCorruptionManager {
 
@@ -45,6 +47,11 @@ public class SculkCorruptionManager {
 
         if (RANDOM.nextDouble() > corruptionChance) {
             return; // Skip this chunk
+        }
+
+        // Fixed: Use proper chunk access method
+        if (!world.isChunkLoaded(chunkPos.x, chunkPos.z)) {
+            return; // Chunk not loaded, skip
         }
 
         WorldChunk chunk = world.getChunk(chunkPos.x, chunkPos.z);
@@ -81,10 +88,12 @@ public class SculkCorruptionManager {
 
     /**
      * Find a suitable Y level for corruption placement
+     * Fixed: Use modern heightmap API
      */
     private static int findSuitableY(ServerWorld world, BlockPos pos) {
-        // Search for solid ground using proper method
-        int topY = world.getTopY(net.minecraft.world.Heightmap.Type.WORLD_SURFACE, pos.getX(), pos.getZ());
+        // Fixed: Use getTopPosition instead of deprecated getTopY
+        BlockPos topPos = world.getTopPosition(Heightmap.Type.WORLD_SURFACE, pos);
+        int topY = topPos.getY();
         int bottomY = world.getBottomY();
 
         for (int y = topY; y > bottomY; y--) {
@@ -236,12 +245,18 @@ public class SculkCorruptionManager {
 
     /**
      * Get a random loaded chunk
+     * Fixed: Use proper loaded chunk access
      */
     private static ChunkPos getRandomLoadedChunk(ServerWorld world) {
-        // Simple implementation - in practice you'd want to track loaded chunks
-        int x = RANDOM.nextInt(200) - 100; // -100 to 100
-        int z = RANDOM.nextInt(200) - 100;
-        return new ChunkPos(x, z);
+        // Get loaded chunks from the world's chunk manager
+        var loadedChunks = world.getChunkManager().getLoadedChunks();
+        if (loadedChunks.isEmpty()) {
+            return null;
+        }
+
+        // Convert to array and pick random
+        ChunkPos[] chunksArray = loadedChunks.toArray(new ChunkPos[0]);
+        return chunksArray[RANDOM.nextInt(chunksArray.length)];
     }
 
     /**
@@ -252,7 +267,11 @@ public class SculkCorruptionManager {
 
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                for (int y = world.getBottomY(); y < world.getTopY(net.minecraft.world.Heightmap.Type.WORLD_SURFACE, start.getX(), start.getZ()); y++) {
+                // Fixed: Use getTopPosition for height calculation
+                BlockPos topPos = world.getTopPosition(Heightmap.Type.WORLD_SURFACE, start.add(x, 0, z));
+                int maxY = topPos.getY();
+
+                for (int y = world.getBottomY(); y < maxY; y++) {
                     BlockPos pos = start.add(x, y, z);
                     if (world.getBlockState(pos).getBlock() == Blocks.SCULK_CATALYST) {
                         // Spread corruption from this catalyst

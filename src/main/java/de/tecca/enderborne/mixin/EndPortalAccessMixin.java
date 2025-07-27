@@ -10,10 +10,15 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Fixed: Consolidated portal access control mixin
+ * Controls access through End Portals - blocks Overworld access until dragon is defeated
+ */
 @Mixin(EndPortalBlock.class)
 public class EndPortalAccessMixin {
 
@@ -43,15 +48,17 @@ public class EndPortalAccessMixin {
             player.sendMessage(Text.literal("§5§oDefeat the End Dragon to break this barrier."));
 
             // Add visual/audio feedback
-            spawnBlockedPortalEffects(world, pos, player);
+            spawnBlockedPortalEffects(world, pos);
         }
         // If dragon is defeated, allow normal teleportation
     }
 
     /**
      * Create visual and audio effects when portal access is blocked
+     * Fixed: Added @Unique annotation and completed implementation
      */
-    private void spawnBlockedPortalEffects(World world, BlockPos pos, ServerPlayerEntity player) {
+    @Unique
+    private void spawnBlockedPortalEffects(World world, BlockPos pos) {
         if (world.isClient) return;
 
         // Spawn particles around the portal to indicate blocked access

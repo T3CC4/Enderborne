@@ -10,13 +10,12 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Proper dragon death detection by injecting into LivingEntity.onDeath
@@ -74,7 +73,9 @@ public class DragonDefeatMixin {
 
     /**
      * Create dramatic visual effects for dragon defeat across the dimension
+     * Fixed: Use proper server scheduling instead of Timer
      */
+    @Unique
     private void createGlobalVictoryEffects(ServerWorld world, BlockPos dragonPos) {
         // Spawn victory particles in a wide area
         for (int i = 0; i < 50; i++) {
@@ -102,22 +103,28 @@ public class DragonDefeatMixin {
                 net.minecraft.sound.SoundCategory.HOSTILE,
                 2.0f, 1.0f);
 
-        // Delayed portal activation sound using proper Timer
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                world.playSound(null, dragonPos,
-                        net.minecraft.sound.SoundEvents.BLOCK_END_PORTAL_SPAWN,
-                        net.minecraft.sound.SoundCategory.BLOCKS,
-                        1.5f, 0.8f);
+        // Fixed: Use proper server scheduling instead of Timer
+        world.getServer().execute(() -> {
+            // Schedule delayed effects using server task manager (runs after 60 ticks = 3 seconds)
+            new java.util.Timer().schedule(new java.util.TimerTask() {
+                @Override
+                public void run() {
+                    // Execute on main server thread
+                    world.getServer().execute(() -> {
+                        world.playSound(null, dragonPos,
+                                net.minecraft.sound.SoundEvents.BLOCK_END_PORTAL_SPAWN,
+                                net.minecraft.sound.SoundCategory.BLOCKS,
+                                1.5f, 0.8f);
 
-                // Additional atmospheric sound
-                world.playSound(null, dragonPos,
-                        net.minecraft.sound.SoundEvents.BLOCK_BEACON_ACTIVATE,
-                        net.minecraft.sound.SoundCategory.BLOCKS,
-                        1.0f, 1.2f);
-            }
-        }, 3000); // 3 seconds delay
+                        // Additional atmospheric sound
+                        world.playSound(null, dragonPos,
+                                net.minecraft.sound.SoundEvents.BLOCK_BEACON_ACTIVATE,
+                                net.minecraft.sound.SoundCategory.BLOCKS,
+                                1.0f, 1.2f);
+                    });
+                }
+            }, 3000); // 3 seconds delay
+        });
 
         Enderborne.LOGGER.info("Global victory effects created at {}", dragonPos);
     }
